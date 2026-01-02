@@ -39,7 +39,11 @@
         #nickDisplay { color: #f0f; font-size: 1.2vw; margin-bottom: 5px; font-family: monospace; }
 
         .exit-btn { border-color: #ff0055; color: #ff0055; }
-        #nick-screen, #main-menu, #diff-menu, #settings-menu, #game-over { display: none; }
+        .exit-btn:hover { background: #ff0055; color: white; box-shadow: 0 0 20px #ff0055; }
+        #nick-screen, #main-menu, #diff-menu, #settings-menu, #game-over, #exit-confirm { display: none; }
+
+        /* Yeni Özel Çıkış Paneli */
+        .confirm-box { background: #111; border: 2px solid #ff0055; padding: 40px; border-radius: 15px; text-align: center; box-shadow: 0 0 30px rgba(255, 0, 85, 0.3); }
     </style>
 </head>
 <body>
@@ -64,7 +68,17 @@
             <h2 id="helloText" style="color: #f0f;"></h2>
             <button onclick="showDiff()" class="lang-play">BAŞLAT</button>
             <button onclick="showSettings()" class="lang-settings">AYARLAR</button>
-            <button onclick="confirmClose()" class="exit-btn lang-exit">ÇIKIŞ</button>
+            <button onclick="showExitConfirm()" class="exit-btn lang-exit">ÇIKIŞ</button>
+        </div>
+
+        <div id="exit-confirm" class="panel">
+            <div class="confirm-box">
+                <h2 style="color: #ff0055;" class="lang-exit-q">OYUNDAN ÇIKILSIN MI?</h2>
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <button onclick="window.close()" class="exit-btn" style="min-width: 120px;">EVET</button>
+                    <button onclick="initApp()" style="min-width: 120px;">HAYIR</button>
+                </div>
+            </div>
         </div>
 
         <div id="diff-menu" class="panel">
@@ -115,8 +129,8 @@
     let currentLang = localStorage.getItem('nd_lang') || "tr";
 
     const trans = {
-        tr: { play:"BAŞLAT", settings:"AYARLAR", exit:"ÇIKIŞ", nickPrompt:"NICKİNİ BELİRLE", save:"KAYDET", selectDiff:"ZORLUK SEÇ", easy:"KOLAY", medium:"ORTA", hard:"ZOR", back:"GERİ", langLabel:"Dil:", volLabel:"Ses:", fs:"TAM EKRAN", changeNick:"NICK DEĞIŞTIR", retry:"TEKRAR DENE", menu:"MENÜ" },
-        en: { play:"START", settings:"SETTINGS", exit:"EXIT", nickPrompt:"CHOOSE NICKNAME", save:"SAVE", selectDiff:"SELECT DIFFICULTY", easy:"EASY", medium:"MEDIUM", hard:"HARD", back:"BACK", langLabel:"Language:", volLabel:"Volume:", fs:"FULLSCREEN", changeNick:"CHANGE NICK", retry:"RETRY", menu:"MENU" }
+        tr: { play:"BAŞLAT", settings:"AYARLAR", exit:"ÇIKIŞ", nickPrompt:"NICKİNİ BELİRLE", save:"KAYDET", selectDiff:"ZORLUK SEÇ", easy:"KOLAY", medium:"ORTA", hard:"ZOR", back:"GERİ", langLabel:"Dil:", volLabel:"Ses:", fs:"TAM EKRAN", changeNick:"NICK DEĞIŞTIR", retry:"TEKRAR DENE", menu:"MENÜ", exitQ: "OYUNDAN ÇIKILSIN MI?" },
+        en: { play:"START", settings:"SETTINGS", exit:"EXIT", nickPrompt:"CHOOSE NICKNAME", save:"SAVE", selectDiff:"SELECT DIFFICULTY", easy:"EASY", medium:"MEDIUM", hard:"HARD", back:"BACK", langLabel:"Language:", volLabel:"Volume:", fs:"FULLSCREEN", changeNick:"CHANGE NICK", retry:"RETRY", menu:"MENU", exitQ: "EXIT GAME?" }
     };
 
     function changeLang(l) {
@@ -139,6 +153,7 @@
         document.querySelectorAll('.lang-change-nick').forEach(el => el.innerText = t.changeNick);
         document.querySelectorAll('.lang-retry').forEach(el => el.innerText = t.retry);
         document.querySelectorAll('.lang-menu').forEach(el => el.innerText = t.menu);
+        document.querySelectorAll('.lang-exit-q').forEach(el => el.innerText = t.exitQ);
     }
 
     function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
@@ -152,7 +167,11 @@
     function changeNickUI() { localStorage.removeItem('nd_final_nick'); userNick = ""; initApp(); }
     function updateVol(v) { music.volume = v; }
     function toggleFS() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
-    function confirmClose() { if(confirm("Çıkmak istiyor musun?")) window.close(); }
+
+    function showExitConfirm() {
+        document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+        document.getElementById('exit-confirm').style.display = 'flex';
+    }
 
     function initApp() {
         document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
