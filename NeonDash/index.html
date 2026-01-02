@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Neon Dash - Global FPS Fixed</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #game-container { position: relative; width: 100vw; height: 100vh; }
+        canvas { display: block; background: #050505; }
+
+        .panel { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.95); display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; z-index: 100; color: white; 
+            backdrop-filter: blur(10px); animation: fadeIn 0.4s;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        h1 { color: #0ff; text-shadow: 0 0 20px #0ff; font-size: 5vw; margin-bottom: 20px; letter-spacing: 8px; }
+        h2 { color: #0ff; text-shadow: 0 0 10px #0ff; margin-bottom: 20px; }
+        
+        button { 
+            background: rgba(0, 255, 255, 0.05); color: #0ff; border: 2px solid #0ff; 
+            padding: 12px 30px; margin: 10px; cursor: pointer; font-size: 1.1vw; 
+            transition: 0.3s; border-radius: 4px; min-width: 220px; font-weight: bold;
+        }
+        button:hover { background: #0ff; color: #000; box-shadow: 0 0 20px #0ff; transform: scale(1.05); }
+        
+        .exit-btn { border-color: #ff0055; color: #ff0055; }
+        .exit-btn:hover { background: #ff0055; color: #fff; box-shadow: 0 0 20px #ff0055; }
+
+        .ui-top { position: absolute; top: 20px; left: 20px; z-index: 10; color: #0ff; font-family: monospace; pointer-events: none; }
+        #liveScore { font-size: 3vw; font-weight: bold; }
+
+        .settings-box { background: #111; padding: 25px; border: 2px solid #0ff; border-radius: 12px; width: 380px; }
+        .s-row { display: flex; justify-content: space-between; align-items: center; margin: 15px 0; }
+
+        #dj-ui { position: absolute; bottom: 30px; left: 30px; }
+        #dj-bar-bg { width: 180px; height: 10px; background: #222; border: 1px solid #0ff; border-radius: 5px; overflow: hidden; }
+        #dj-bar-fill { width: 100%; height: 100%; background: #0ff; }
+
+        #quick-lang { position: absolute; top: 20px; right: 20px; z-index: 200; }
+        #diff-menu, #settings-menu, #game-over, #exit-confirm { display: none; }
+    </style>
+</head>
+<body>
+
+    <audio id="gameMusic" loop>
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-15.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="quick-lang">
+        <button onclick="toggleLang()" style="min-width: 80px; padding: 5px 10px; font-size: 0.8vw;">TR/EN</button>
+    </div>
+
+    <div id="game-container">
+        <div class="ui-top">
+            <div id="liveScore">0</div>
+            <div id="bestScoreUI" style="color:#f0f; font-size: 1.2vw;">REKOR: 0</div>
+        </div>
+
+        <div id="dj-ui">
+            <div id="dj-text" style="color:#0ff; font-size: 12px; margin-bottom: 5px; font-weight: bold;">HAZIR</div>
+            <div id="dj-bar-bg"><div id="dj-bar-fill"></div></div>
+        </div>
+
+        <div id="main-menu" class="panel">
+            <h1 id="txt-title">NEON DASH</h1>
+            <button id="playBtn" class="lang-play">BAŞLAT</button>
+            <button id="setBtn" class="lang-settings">AYARLAR</button>
+            <button id="exitOpenBtn" class="exit-btn lang-exit">ÇIKIŞ</button>
+        </div>
+
+        <div id="diff-menu" class="panel">
+            <h2 id="txt-diff-title" class="lang-select-diff">ZORLUK SEÇ</h2>
+            <button onclick="startWithDiff('easy')" class="lang-easy">KOLAY</button>
+            <button onclick="startWithDiff('medium')" class="lang-medium">ORTA</button>
+            <button onclick="startWithDiff('hard')" class="lang-hard">ZOR</button>
+            <div style="margin-top: 20px;">
+                <button id="musicToggleBtn" style="min-width: 150px; border-color: #f0f; color: #f0f;" class="lang-music">MÜZİK: AÇIK</button>
+            </div>
+            <button onclick="showMenu()" style="border:none; font-size: 0.9vw; text-decoration: underline;" class="lang-back">GERİ DÖ</button>
+        </div>
+
+        <div id="settings-menu" class="panel">
+            <div class="settings-box">
+                <h2 style="color:#0ff; margin-top:0;" class="lang-settings">AYARLAR</h2>
+                <div class="s-row">
+                    <span class="lang-lang-label">Dil / Language:</span>
+                    <select id="langSelect" onchange="changeLang(this.value)" style="background:#000; color:#0ff; border:1px solid #0ff; padding:5px;">
+                        <option value="tr">Türkçe</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div class="s-row">
+                    <span class="lang-vol-label">Müzik Ses:</span>
+                    <input type="range" id="volSlider" min="0" max="1" step="0.1" value="0.5">
+                </div>
+                <button id="fsBtn" class="lang-fs">TAM EKRAN</button>
+                <button id="saveBtn" style="width: 100%; margin-top: 15px; background:#0ff; color:#000;" class="lang-save">KAYDET</button>
+            </div>
+        </div>
+
+        <div id="exit-confirm" class="panel">
+            <div style="background:#111; padding:40px; border:2px solid #ff0055; border-radius:15px; text-align:center;">
+                <h2 id="txt-exit-q" style="color:#ff0055; margin-bottom:30px;" class="lang-exit-q">KAPATILSIN MI?</h2>
+                <button id="confirmExitBtn" class="exit-btn lang-yes">EVET</button>
+                <button id="cancelExitBtn" class="lang-no">HAYIR</button>
+            </div>
+        </div>
+
+        <div id="game-over" class="panel">
+            <h1 id="txt-go-title" style="color: #ff0055;" class="lang-go">ELENDİN</h1>
+            <div id="final-score" style="font-size: 2vw; margin-bottom: 25px;">SKOR: 0</div>
+            <button id="restartBtn" class="lang-retry">TEKRAR DENE</button>
+            <button onclick="showMenu()" class="lang-menu-btn">MENÜ</button>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const music = document.getElementById('gameMusic');
+    const BASE_WIDTH = 1920, BASE_HEIGHT = 1080;
+    
+    // ZAMANLAMA DEĞİŞKENLERİ (FPS FIX)
+    let lastTime = 0;
+    const targetFPS = 60;
+    const interval = 1000 / targetFPS;
+
+    let scale = 1, gameActive = false, score = 0, frame = 0, gameSpeed = 16;
+    let record = localStorage.getItem('nd_pro_rec') || 0;
+    let isMusicEnabled = true;
+    let currentLang = 'tr';
+    let djSpeed = 2;
+
+    const translations = {
+        tr: { title: "NEON DASH", play: "BAŞLAT", settings: "AYARLAR", exit: "ÇIKIŞ", selectDiff: "ZORLUK SEÇ", easy: "KOLAY", medium: "ORTA", hard: "ZOR", musicOn: "MÜZİK: AÇIK", musicOff: "MÜZİK: KAPALI", back: "GERİ DÖ", volLabel: "Müzik Ses:", langLabel: "Dil:", fs: "TAM EKRAN", save: "KAYDET", exitQ: "KAPATILSIN MI?", yes: "EVET", no: "HAYIR", go: "ELENDİN", retry: "TEKRAR DENE", menuBtn: "MENÜ", record: "REKOR: ", score: "SKOR: ", djWait: "DOLUYOR", djReady: "HAZIR" },
+        en: { title: "NEON DASH", play: "START", settings: "SETTINGS", exit: "EXIT", selectDiff: "CHOOSE DIFFICULTY", easy: "EASY", medium: "MEDIUM", hard: "HARD", musicOn: "MUSIC: ON", musicOff: "MUSIC: OFF", back: "BACK", volLabel: "Music Vol:", langLabel: "Language:", fs: "FULLSCREEN", save: "SAVE", exitQ: "CLOSE GAME?", yes: "YES", no: "NO", go: "GAME OVER", retry: "TRY AGAIN", menuBtn: "MENU", record: "BEST: ", score: "SCORE: ", djWait: "CHARGING", djReady: "READY" }
+    };
+
+    function changeLang(lang) {
+        currentLang = lang;
+        const t = translations[lang];
+        document.getElementById('txt-title').innerText = t.title;
+        document.querySelectorAll('.lang-play').forEach(el => el.innerText = t.play);
+        document.querySelectorAll('.lang-settings').forEach(el => el.innerText = t.settings);
+        document.querySelectorAll('.lang-exit').forEach(el => el.innerText = t.exit);
+        document.querySelectorAll('.lang-select-diff').forEach(el => el.innerText = t.selectDiff);
+        document.querySelectorAll('.lang-easy').forEach(el => el.innerText = t.easy);
+        document.querySelectorAll('.lang-medium').forEach(el => el.innerText = t.medium);
+        document.querySelectorAll('.lang-hard').forEach(el => el.innerText = t.hard);
+        document.querySelectorAll('.lang-back').forEach(el => el.innerText = t.back);
+        document.querySelectorAll('.lang-vol-label').forEach(el => el.innerText = t.volLabel);
+        document.querySelectorAll('.lang-lang-label').forEach(el => el.innerText = t.langLabel);
+        document.querySelectorAll('.lang-fs').forEach(el => el.innerText = t.fs);
+        document.querySelectorAll('.lang-save').forEach(el => el.innerText = t.save);
+        document.querySelectorAll('.lang-exit-q').forEach(el => el.innerText = t.exitQ);
+        document.querySelectorAll('.lang-yes').forEach(el => el.innerText = t.yes);
+        document.querySelectorAll('.lang-no').forEach(el => el.innerText = t.no);
+        document.querySelectorAll('.lang-go').forEach(el => el.innerText = t.go);
+        document.querySelectorAll('.lang-retry').forEach(el => el.innerText = t.retry);
+        document.querySelectorAll('.lang-menu-btn').forEach(el => el.innerText = t.menuBtn);
+        document.getElementById('musicToggleBtn').innerText = isMusicEnabled ? t.musicOn : t.musicOff;
+        document.getElementById('bestScoreUI').innerText = t.record + record;
+        document.getElementById('langSelect').value = lang;
+    }
+
+    function toggleLang() { changeLang(currentLang === 'tr' ? 'en' : 'tr'); }
+    function resize() {
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        scale = Math.min(canvas.width / BASE_WIDTH, canvas.height / BASE_HEIGHT);
+    }
+    window.addEventListener('resize', resize); resize(); changeLang('tr');
+
+    document.getElementById('musicToggleBtn').onclick = () => { isMusicEnabled = !isMusicEnabled; changeLang(currentLang); };
+    document.getElementById('playBtn').onclick = () => { document.getElementById('main-menu').style.display = 'none'; document.getElementById('diff-menu').style.display = 'flex'; };
+    
+    function showMenu() {
+        document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+        document.getElementById('main-menu').style.display = 'flex';
+        music.pause();
+        gameActive = false;
+    }
+
+    function startWithDiff(level) {
+        if (level === 'easy') { gameSpeed = 12; djSpeed = 4; }
+        else if (level === 'medium') { gameSpeed = 17; djSpeed = 2; }
+        else { gameSpeed = 22; djSpeed = 1.2; }
+        document.getElementById('diff-menu').style.display = 'none';
+        start();
+    }
+
+    function start() {
+        document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+        score = 0; frame = 0; djCD = 600; obstacles = [];
+        platforms = [{ x: -100, y: 920, w: 2500 }]; 
+        player.by = 800; player.bdy = 0; 
+        gameActive = true;
+        lastTime = performance.now(); // FPS kontrolü için zamanı sıfırla
+        if (isMusicEnabled) { music.currentTime = 0; music.play().catch(()=>{}); }
+        update(performance.now());
+    }
+
+    document.getElementById('confirmExitBtn').onclick = () => { window.open('', '_self', ''); window.close(); };
+    document.getElementById('setBtn').onclick = () => { document.getElementById('main-menu').style.display='none'; document.getElementById('settings-menu').style.display='flex'; };
+    document.getElementById('saveBtn').onclick = () => { document.getElementById('settings-menu').style.display='none'; document.getElementById('main-menu').style.display='flex'; };
+    document.getElementById('exitOpenBtn').onclick = () => document.getElementById('exit-confirm').style.display='flex';
+    document.getElementById('cancelExitBtn').onclick = () => document.getElementById('exit-confirm').style.display='none';
+    document.getElementById('restartBtn').onclick = () => { document.getElementById('game-over').style.display='none'; document.getElementById('diff-menu').style.display='flex'; };
+    document.getElementById('fsBtn').onclick = () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); };
+    document.getElementById('volSlider').oninput = (e) => music.volume = e.target.value;
+
+    let platforms = [], obstacles = [];
+    let player = { bx: 350, by: 800, bw: 65, bh: 65, bdy: 0, bjump: -27, grounded: false, rot: 0 };
+    let djCD = 600, djUsed = false;
+
+    function jump() {
+        if (!gameActive) return;
+        if (player.grounded) { player.bdy = player.bjump; player.grounded = false; djUsed = false; }
+        else if (!djUsed && djCD >= 600) { player.bdy = player.bjump * 0.85; djUsed = true; djCD = 0; }
+    }
+    window.onkeydown = (e) => { if (e.code === 'Space') jump(); };
+    canvas.onmousedown = jump;
+
+    function addPlatform() {
+        let lastP = platforms[platforms.length - 1];
+        let gap = 160 + Math.random() * 220;
+        let width = 600 + Math.random() * 800;
+        let newX = lastP.x + lastP.w + gap;
+        platforms.push({ x: newX, y: 920, w: width });
+        if(Math.random() > 0.45) obstacles.push({ x: newX + 200 + Math.random()*(width-300), y: 920, bw: 60, bh: 85 });
+    }
+
+    function update(timestamp) {
+        if (!gameActive) return;
+
+        // FPS SABİTLEME MANTIĞI
+        const deltaTime = timestamp - lastTime;
+        
+        if (deltaTime >= interval) {
+            // Sadece belirli aralıkla (saniyede 60 kez) bu blok çalışır
+            lastTime = timestamp - (deltaTime % interval);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const oX = (canvas.width - BASE_WIDTH * scale) / 2, oY = (canvas.height - BASE_HEIGHT * scale) / 2;
+
+            let currentSpeed = gameSpeed + (frame / 250);
+
+            if (djCD < 600) djCD += djSpeed;
+            document.getElementById('dj-bar-fill').style.width = (Math.min(djCD, 600)/600*100) + "%";
+            document.getElementById('dj-text').innerText = djCD < 600 ? translations[currentLang].djWait : translations[currentLang].djReady;
+
+            if (platforms[platforms.length-1].x + platforms[platforms.length-1].w < BASE_WIDTH + 1000) addPlatform();
+
+            player.bdy += 1.6; player.by += player.bdy; player.grounded = false;
+
+            platforms.forEach(p => {
+                p.x -= currentSpeed;
+                ctx.fillStyle = "#111"; ctx.strokeStyle = "#0ff"; ctx.lineWidth = 4 * scale;
+                ctx.fillRect(oX + p.x * scale, oY + p.y * scale, p.w * scale, 500 * scale);
+                ctx.strokeRect(oX + p.x * scale, oY + p.y * scale, p.w * scale, 500 * scale);
+                if (player.bx + player.bw > p.x && player.bx < p.x + p.w && player.by + player.bh >= p.y && player.by + player.bh <= p.y + 40 && player.bdy >= 0) {
+                    player.by = p.y - player.bh; player.bdy = 0; player.grounded = true;
+                }
+            });
+
+            obstacles.forEach(s => {
+                s.x -= currentSpeed;
+                ctx.fillStyle = "#ff0055";
+                ctx.beginPath();
+                ctx.moveTo(oX+s.x*scale, oY+s.y*scale);
+                ctx.lineTo(oX+(s.x+s.bw/2)*scale, oY+(s.y-s.bh)*scale);
+                ctx.lineTo(oX+(s.x+s.bw)*scale, oY+s.y*scale);
+                ctx.fill();
+                if (player.bx+15 < s.x+s.bw && player.bx+player.bw-15 > s.x && player.by+player.bh > s.y-s.bh+15 && player.by < s.y) die();
+            });
+
+            ctx.save();
+            ctx.translate(oX+(player.bx+player.bw/2)*scale, oY+(player.by+player.bh/2)*scale);
+            if(!player.grounded) player.rot += 0.25; else player.rot = 0;
+            ctx.rotate(player.rot); ctx.fillStyle = djUsed ? "#f0f" : "#0ff";
+            ctx.shadowBlur = 15 * scale; ctx.shadowColor = ctx.fillStyle;
+            ctx.fillRect(-player.bw*scale/2, -player.bh*scale/2, player.bw*scale, player.bh*scale);
+            ctx.restore();
+
+            if (player.by > 1050) die();
+            score = Math.floor(frame / 60);
+            document.getElementById('liveScore').innerText = score;
+            frame++;
+        }
+        
+        requestAnimationFrame(update);
+    }
+
+    function die() {
+        gameActive = false;
+        if (score > record) { record = score; localStorage.setItem('nd_pro_rec', record); }
+        document.getElementById('final-score').innerText = translations[currentLang].score + score;
+        document.getElementById('game-over').style.display = 'flex';
+        music.pause();
+    }
+</script>
+</body>
+</html>
