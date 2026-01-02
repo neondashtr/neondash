@@ -29,14 +29,17 @@
         input[type="text"] {
             background: #111; border: 2px solid #0ff; color: #0ff; padding: 15px;
             font-size: 1.2vw; text-align: center; border-radius: 5px; margin-bottom: 20px; outline: none;
-            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
         }
+
+        .settings-box { background: #111; padding: 30px; border: 2px solid #0ff; border-radius: 12px; width: 400px; text-align: center; }
+        .s-row { display: flex; justify-content: space-between; align-items: center; margin: 20px 0; font-size: 1.1vw; }
 
         .ui-top { position: absolute; top: 20px; left: 20px; z-index: 10; color: #0ff; pointer-events: none; }
         #liveScore { font-size: 3vw; font-weight: bold; }
-        #nickDisplay { color: #f0f; font-size: 1.2vw; margin-bottom: 5px; font-family: monospace; text-shadow: 0 0 5px #f0f; }
+        #nickDisplay { color: #f0f; font-size: 1.2vw; margin-bottom: 5px; font-family: monospace; }
 
-        #nick-screen, #main-menu, #game-over { display: none; }
+        .exit-btn { border-color: #ff0055; color: #ff0055; }
+        #nick-screen, #main-menu, #diff-menu, #settings-menu, #game-over { display: none; }
     </style>
 </head>
 <body>
@@ -51,23 +54,52 @@
 
         <div id="nick-screen" class="panel">
             <h1>NEON DASH</h1>
-            <h2>KULLANICI ADINI GİR</h2>
-            <input type="text" id="nickInput" maxlength="12" placeholder="Nickiniz...">
-            <button onclick="saveNick()">KAYDET VE GİRİŞ YAP</button>
+            <h2 class="lang-nick-prompt">NICKİNİ BELİRLE</h2>
+            <input type="text" id="nickInput" maxlength="12" placeholder="...">
+            <button onclick="saveNick()" class="lang-save">KAYDET</button>
         </div>
 
         <div id="main-menu" class="panel">
             <h1>NEON DASH</h1>
             <h2 id="helloText" style="color: #f0f;"></h2>
-            <button onclick="startGame()">OYUNA BAŞLA</button>
-            <button onclick="changeNick()" style="border-color: #555; color: #555; min-width: 150px; font-size: 0.8vw;">NICKİ DEĞİŞTİR</button>
+            <button onclick="showDiff()" class="lang-play">BAŞLAT</button>
+            <button onclick="showSettings()" class="lang-settings">AYARLAR</button>
+            <button onclick="confirmClose()" class="exit-btn lang-exit">ÇIKIŞ</button>
+        </div>
+
+        <div id="diff-menu" class="panel">
+            <h2 class="lang-select-diff">ZORLUK SEÇ</h2>
+            <button onclick="startGame('easy')" class="lang-easy">KOLAY</button>
+            <button onclick="startGame('medium')" class="lang-medium">ORTA</button>
+            <button onclick="startGame('hard')" class="lang-hard">ZOR</button>
+            <button onclick="initApp()" style="border:none; text-decoration: underline;" class="lang-back">GERİ</button>
+        </div>
+
+        <div id="settings-menu" class="panel">
+            <div class="settings-box">
+                <h2 class="lang-settings">AYARLAR</h2>
+                <div class="s-row">
+                    <span class="lang-lang-label">Dil / Language:</span>
+                    <select id="langSelect" onchange="changeLang(this.value)" style="background:#000; color:#0ff; border:1px solid #0ff; padding:5px;">
+                        <option value="tr">Türkçe</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div class="s-row">
+                    <span class="lang-vol-label">Ses:</span>
+                    <input type="range" id="volSlider" min="0" max="1" step="0.1" value="0.5" oninput="updateVol(this.value)">
+                </div>
+                <button onclick="toggleFS()" class="lang-fs">TAM EKRAN</button>
+                <button onclick="changeNickUI()" style="border-color: #f0f; color: #f0f; min-width: 100px; font-size: 0.8vw;" class="lang-change-nick">NICKİ DEĞİŞTİR</button>
+                <button onclick="initApp()" style="width: 100%; margin-top: 15px; background:#0ff; color:#000;" class="lang-save">KAYDET</button>
+            </div>
         </div>
 
         <div id="game-over" class="panel">
-            <h1 style="color: #ff0055; text-shadow: 0 0 20px #ff0055;">ELENDİN</h1>
+            <h1 style="color: #ff0055;">ELENDİN</h1>
             <div id="final-score" style="font-size: 2vw; margin-bottom: 20px;">SKOR: 0</div>
-            <button onclick="startGame()">TEKRAR DENE</button>
-            <button onclick="initApp()">ANA MENÜ</button>
+            <button onclick="showDiff()" class="lang-retry">TEKRAR DENE</button>
+            <button onclick="initApp()" class="lang-menu">MENÜ</button>
         </div>
 
         <canvas id="gameCanvas"></canvas>
@@ -78,58 +110,84 @@
     const ctx = canvas.getContext('2d');
     const music = document.getElementById('gameMusic');
     
-    // FPS SABİTLEME (60 FPS)
-    let lastTime = 0;
-    const targetFPS = 60;
-    const interval = 1000 / targetFPS;
+    let lastTime = 0, targetFPS = 60, interval = 1000 / targetFPS;
+    let userNick = localStorage.getItem('nd_final_nick') || "";
+    let currentLang = localStorage.getItem('nd_lang') || "tr";
 
-    let userNick = localStorage.getItem('nd_user_nick') || "";
+    const trans = {
+        tr: { play:"BAŞLAT", settings:"AYARLAR", exit:"ÇIKIŞ", nickPrompt:"NICKİNİ BELİRLE", save:"KAYDET", selectDiff:"ZORLUK SEÇ", easy:"KOLAY", medium:"ORTA", hard:"ZOR", back:"GERİ", langLabel:"Dil:", volLabel:"Ses:", fs:"TAM EKRAN", changeNick:"NICK DEĞIŞTIR", retry:"TEKRAR DENE", menu:"MENÜ" },
+        en: { play:"START", settings:"SETTINGS", exit:"EXIT", nickPrompt:"CHOOSE NICKNAME", save:"SAVE", selectDiff:"SELECT DIFFICULTY", easy:"EASY", medium:"MEDIUM", hard:"HARD", back:"BACK", langLabel:"Language:", volLabel:"Volume:", fs:"FULLSCREEN", changeNick:"CHANGE NICK", retry:"RETRY", menu:"MENU" }
+    };
 
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+    function changeLang(l) {
+        currentLang = l;
+        localStorage.setItem('nd_lang', l);
+        const t = trans[l];
+        document.querySelectorAll('.lang-play').forEach(el => el.innerText = t.play);
+        document.querySelectorAll('.lang-settings').forEach(el => el.innerText = t.settings);
+        document.querySelectorAll('.lang-exit').forEach(el => el.innerText = t.exit);
+        document.querySelectorAll('.lang-nick-prompt').forEach(el => el.innerText = t.nickPrompt);
+        document.querySelectorAll('.lang-save').forEach(el => el.innerText = t.save);
+        document.querySelectorAll('.lang-select-diff').forEach(el => el.innerText = t.selectDiff);
+        document.querySelectorAll('.lang-easy').forEach(el => el.innerText = t.easy);
+        document.querySelectorAll('.lang-medium').forEach(el => el.innerText = t.medium);
+        document.querySelectorAll('.lang-hard').forEach(el => el.innerText = t.hard);
+        document.querySelectorAll('.lang-back').forEach(el => el.innerText = t.back);
+        document.querySelectorAll('.lang-lang-label').forEach(el => el.innerText = t.langLabel);
+        document.querySelectorAll('.lang-vol-label').forEach(el => el.innerText = t.volLabel);
+        document.querySelectorAll('.lang-fs').forEach(el => el.innerText = t.fs);
+        document.querySelectorAll('.lang-change-nick').forEach(el => el.innerText = t.changeNick);
+        document.querySelectorAll('.lang-retry').forEach(el => el.innerText = t.retry);
+        document.querySelectorAll('.lang-menu').forEach(el => el.innerText = t.menu);
     }
-    window.addEventListener('resize', resize);
-    resize();
+
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    window.addEventListener('resize', resize); resize();
 
     function saveNick() {
         const val = document.getElementById('nickInput').value.trim();
-        if(val.length >= 2) {
-            userNick = val;
-            localStorage.setItem('nd_user_nick', userNick);
-            initApp();
-        } else {
-            alert("Nick çok kısa!");
-        }
+        if(val.length >= 2) { userNick = val; localStorage.setItem('nd_final_nick', userNick); initApp(); }
     }
 
-    function changeNick() {
-        localStorage.removeItem('nd_user_nick');
-        userNick = "";
-        initApp();
-    }
+    function changeNickUI() { localStorage.removeItem('nd_final_nick'); userNick = ""; initApp(); }
+    function updateVol(v) { music.volume = v; }
+    function toggleFS() { if (!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+    function confirmClose() { if(confirm("Çıkmak istiyor musun?")) window.close(); }
 
     function initApp() {
         document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+        changeLang(currentLang);
         if(!userNick) {
             document.getElementById('nick-screen').style.display = 'flex';
         } else {
             document.getElementById('main-menu').style.display = 'flex';
-            document.getElementById('helloText').innerText = "Hoş geldin, " + userNick;
-            document.getElementById('nickDisplay').innerText = "OYUNCU: " + userNick;
+            document.getElementById('helloText').innerText = (currentLang === "tr" ? "Hoş geldin, " : "Welcome, ") + userNick;
+            document.getElementById('nickDisplay').innerText = "PLAYER: " + userNick;
         }
-        gameActive = false;
-        music.pause();
+        gameActive = false; music.pause();
     }
 
-    // OYUN MANTIĞI
-    let gameActive = false, score = 0, frame = 0, currentSpeed = 12;
-    let platforms = [], obstacles = [], player = { bx: 300, by: 0, bw: 60, bh: 60, bdy: 0, bjump: -25, grounded: false, rot: 0 };
-
-    function startGame() {
+    function showSettings() {
         document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
-        score = 0; frame = 0; currentSpeed = 12; obstacles = [];
-        platforms = [{ x: -50, y: canvas.height * 0.8, w: 2000 }]; 
+        document.getElementById('settings-menu').style.display = 'flex';
+        document.getElementById('langSelect').value = currentLang;
+    }
+
+    function showDiff() {
+        document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+        document.getElementById('diff-menu').style.display = 'flex';
+    }
+
+    let gameActive = false, score = 0, frame = 0, gameSpeed = 16, platforms = [], obstacles = [], player = { bx: 300, by: 0, bw: 60, bh: 60, bdy: 0, bjump: -26, grounded: false, rot: 0 };
+
+    function startGame(level) {
+        if (level === 'easy') gameSpeed = 12;
+        else if (level === 'medium') gameSpeed = 17;
+        else gameSpeed = 22;
+        
+        document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+        score = 0; frame = 0; obstacles = [];
+        platforms = [{ x: -50, y: canvas.height * 0.8, w: 2500 }]; 
         player.by = canvas.height * 0.5; player.bdy = 0; 
         gameActive = true;
         lastTime = performance.now();
@@ -140,47 +198,37 @@
     function gameLoop(timestamp) {
         if (!gameActive) return;
         const deltaTime = timestamp - lastTime;
-        
         if (deltaTime >= interval) {
             lastTime = timestamp - (deltaTime % interval);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            currentSpeed = 12 + (frame / 300); // Zamanla hızlanma
-            
-            // Platform Döngüsü
-            if (platforms[platforms.length-1].x + platforms[platforms.length-1].w < canvas.width + 500) {
+            let currentSpeed = gameSpeed + (frame / 350);
+
+            if (platforms[platforms.length-1].x + platforms[platforms.length-1].w < canvas.width + 800) {
                 let lastP = platforms[platforms.length - 1];
-                let gap = 150 + Math.random() * 200;
+                let gap = 160 + Math.random() * 200;
                 let width = 500 + Math.random() * 800;
                 platforms.push({ x: lastP.x + lastP.w + gap, y: canvas.height * 0.8, w: width });
-                if(Math.random() > 0.5) obstacles.push({ x: lastP.x + lastP.w + gap + 150, y: canvas.height * 0.8, bw: 50, bh: 70 });
+                if(Math.random() > 0.45) obstacles.push({ x: lastP.x + lastP.w + gap + 150, y: canvas.height * 0.8, bw: 50, bh: 75 });
             }
 
-            player.bdy += 1.5; // Yerçekimi
-            player.by += player.bdy;
-            player.grounded = false;
+            player.bdy += 1.5; player.by += player.bdy; player.grounded = false;
 
-            // Platformlar
-            ctx.fillStyle = "#111"; ctx.strokeStyle = "#0ff"; ctx.lineWidth = 3;
             platforms.forEach(p => {
                 p.x -= currentSpeed;
-                ctx.fillRect(p.x, p.y, p.w, canvas.height);
-                ctx.strokeRect(p.x, p.y, p.w, canvas.height);
-                
+                ctx.fillStyle = "#111"; ctx.strokeStyle = "#0ff"; ctx.lineWidth = 4;
+                ctx.fillRect(p.x, p.y, p.w, canvas.height); ctx.strokeRect(p.x, p.y, p.w, canvas.height);
                 if (player.bx + player.bw > p.x && player.bx < p.x + p.w && player.by + player.bh >= p.y && player.by + player.bh <= p.y + 40 && player.bdy >= 0) {
                     player.by = p.y - player.bh; player.bdy = 0; player.grounded = true;
                 }
             });
 
-            // Engeller
-            ctx.fillStyle = "#ff0055";
             obstacles.forEach(s => {
                 s.x -= currentSpeed;
+                ctx.fillStyle = "#ff0055";
                 ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x+s.bw/2, s.y-s.bh); ctx.lineTo(s.x+s.bw, s.y); ctx.fill();
-                if (player.bx+10 < s.x+s.bw && player.bx+player.bw-10 > s.x && player.by+player.bh > s.y-s.bh+10 && player.by < s.y) die();
+                if (player.bx+12 < s.x+s.bw && player.bx+player.bw-12 > s.x && player.by+player.bh > s.y-s.bh+12 && player.by < s.y) die();
             });
 
-            // Karakter
             ctx.save();
             ctx.translate(player.bx+player.bw/2, player.by+player.bh/2);
             if(!player.grounded) player.rot += 0.2; else player.rot = 0;
@@ -199,17 +247,15 @@
 
     function die() {
         gameActive = false;
-        document.getElementById('final-score').innerText = "SKOR: " + score;
+        document.getElementById('final-score').innerText = (currentLang === "tr" ? "SKOR: " : "SCORE: ") + score;
         document.getElementById('game-over').style.display = 'flex';
         music.pause();
     }
 
-    // Giriş Kontrolleri
     function jump() { if(gameActive && player.grounded) { player.bdy = player.bjump; player.grounded = false; } }
     window.onkeydown = (e) => { if (e.code === 'Space') jump(); };
     canvas.onmousedown = jump;
 
-    // Uygulamayı Başlat
     initApp();
 </script>
 </body>
